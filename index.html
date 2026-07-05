@@ -277,6 +277,8 @@
         
         if (parseInt(amount) === 20) {
             el.style.color = '#ff0000'; // 大当たりは赤
+        } else if (parseInt(amount) === 5) {
+            el.style.color = '#e6b800'; // 5枚は黄色
         } else if (parseInt(amount) === 0) {
             el.style.color = '#777777'; // 0枚はグレー（目立たなくする）
         }
@@ -452,7 +454,7 @@
     var chest_test_trial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
-            <div class="instruction-wrap"><p>これらは宝箱です。何度かクリックすると開いてコインを獲得することができます。<br>宝箱にはコインが0枚、5枚、または20枚入っています。<br>入っているコインが0枚の宝箱を開けたとき、コインは獲得できません。<br>さあ、これらの宝箱をクリックして開けてみてください。<br>(ここではコインを獲得したり、失ったりすることはありません。)</p><p>宝箱が開くと音が鳴ります。音が聞こえない場合は実験を中断して実験者にお知らせください。</p></div>
+            <div class="instruction-wrap"><p>これらは宝箱です。何度かクリックすると開いてコインを入れることができます。<br>宝箱にはコインが0枚、5枚、または20枚入っています。<br>入っているコインが0枚の宝箱を開けたとき、コインは獲得できません。<br>さあ、これらの宝箱をクリックして開けてみてください。<br>(ここではコインを獲得したり、失ったりすることはありません。)</p><p>宝箱が開くと音が鳴ります。音が聞こえない場合は実験を中断して実験者にお知らせください。</p></div>
             <div class="chest-container" style="gap:20px;">
                 <div class="chest-btn" id="t-btn1"><img src="${IMG_CHEST_CLOSED}" id="t-img1" class="chest-img"></div>
                 <div class="chest-btn" id="t-btn2"><img src="${IMG_CHEST_CLOSED}" id="t-img2" class="chest-img"></div>
@@ -612,19 +614,30 @@
         for(let i=0; i<16; i++) inaccurate_types.push(5);  
         do { inaccurate_types = shuffleArray(inaccurate_types); } while (hasConsecutiveValue(inaccurate_types, 4));
         for (let i = 0; i < 20; i++) {
+            // ① 正確な人のデータを一旦変数にまとめる
             let dl = accurate_dirs[i];
             let tl = accurate_types[i];
-            let txtL = (dl === 0 ? "左  +5枚" : "右  +5枚")
+            let txtL = (dl === 0 ? "左  +5枚" : "右  +5枚"); // 利益版は +5枚
             let rewLL = (tl === 1 ? (dl === 0 ? 5 : 0) : (dl === 0 ? 0 : 5));
             let rewLR = (tl === 1 ? (dl === 0 ? 0 : 5) : (dl === 0 ? 5 : 0));
-            // block: 5サイクルごとにブロック数を算出 (1〜4)
-            trials.push({ char: 'accurate', text: txtL, rewL: rewLL, rewR: rewLR, cycle: i + 1, block: Math.ceil((i + 1) / 5) });
+            let acc_trial = { char: 'accurate', text: txtL, rewL: rewLL, rewR: rewLR, cycle: i + 1, block: Math.ceil((i + 1) / 5) };
+
+            // ② 不正確な人のデータを一旦変数にまとめる
             let dr = inaccurate_dirs[i];
             let tr = inaccurate_types[i];
-            let txtR = (dr === 0 ? "左  +5枚" : "右  +5枚");
+            let txtR = (dr === 0 ? "左  +5枚" : "右  +5枚"); // 利益版は +5枚
             let rewRL = (tr === 4 ? (dr === 0 ? 5 : 0) : (dr === 0 ? 0 : 5));
             let rewRR = (tr === 4 ? (dr === 0 ? 0 : 5) : (dr === 0 ? 5 : 0));
-            trials.push({ char: 'inaccurate', text: txtR, rewL: rewRL, rewR: rewRR, cycle: i + 1, block: Math.ceil((i + 1) / 5) });
+            let inacc_trial = { char: 'inaccurate', text: txtR, rewL: rewRL, rewR: rewRR, cycle: i + 1, block: Math.ceil((i + 1) / 5) };
+            
+            // ③ ★50%の確率で順番を入れ替えて push する
+            if (Math.random() < 0.5) {
+                trials.push(acc_trial);
+                trials.push(inacc_trial);
+            } else {
+                trials.push(inacc_trial);
+                trials.push(acc_trial);
+            }
         }
         return trials;
     }
@@ -802,72 +815,77 @@
                     }
                 }
 
+                // === ここからトレーニングフェーズの記録 ===
                 if (current_phase === 'training') {
                     summary_data.total_clicks_training++;
                     window.cycle_stats.clicks++; 
                     
                     let hint_side = d.text.includes("左") ? 0 : 1; 
+                    let is_follow = (side === hint_side); // 指示に従ったかどうか
                     
-                    if (side === hint_side) { window.cycle_stats.follow++;
-                    } 
-                    else { window.cycle_stats.unfollow++;
-                    }
+                    if (is_follow) { window.cycle_stats.follow++; } 
+                    else { window.cycle_stats.unfollow++; }
 
                     if(d.char === 'accurate') {
-                        if (side === hint_side) summary_data.follow_accurate_training++;
+                        if (is_follow) summary_data.follow_accurate_training++;
                         else summary_data.unfollow_accurate_training++;
                     } else {
-                        if (side === hint_side) summary_data.follow_inaccurate_training++;
+                        if (is_follow) summary_data.follow_inaccurate_training++;
                         else summary_data.unfollow_inaccurate_training++;
                     }
                     
+                    // トレーニングフェーズのデータ書き込み
                     jsPsych.data.write({ 
                         phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor, 
-                        response_side: 
-                        side === 0 ? 'left' : 'right', character: d.char,
-                        hint_side: hint_side === 0 ? 'left' : 'right',
+                        response_side: side === 0 ? 'left' : 'right', // 選択した方向
+                        character: d.char,
+                        hint_side: hint_side === 0 ? 'left' : 'right', // キャラが指示した方向
+                        followed_hint: is_follow, // 指示に従ったか（TRUE/FALSE）
                         reward_val: d.rewL > 0 || d.rewR > 0 ? (d.rewL > 0 ? d.rewL : d.rewR) : 0, 
-                   
-                        lost_val: rew, // ★追加：この試行で実際に失った金額
+                        lost_val: rew, 
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
+
+                // === ここからテストフェーズの記録 ===
                 } else if (current_phase === 'test') {
                     summary_data.total_clicks_test++;
                     window.cycle_stats.clicks++; 
                     
+                    // 正確な人と不正確な人が指した方向
                     let acc_dir = (experiment_data.accurate_color === 'red') ? d.red_dir : d.blue_dir;
                     let inacc_dir = (experiment_data.inaccurate_color === 'red') ? d.red_dir : d.blue_dir;
                     
+                    // 正確な人と不正確な人が提示したコインの枚数
+                    let acc_val = (experiment_data.accurate_color === 'red') ? d.red_val : d.blue_val;
+                    let inacc_val = (experiment_data.inaccurate_color === 'red') ? d.red_val : d.blue_val;
+
+                    // 指示に従ったかどうかの判定
                     let followed_acc = (side === acc_dir);
                     let followed_inacc = (side === inacc_dir);
-
-                    // Case A / Case B ごとの集計
-                    if (d.test_condition === 'CaseA') {
-                        summary_data.caseA_total_clicks++;
-                        if (followed_acc) summary_data.caseA_follow_accurate_clicks++; else summary_data.caseA_unfollow_accurate_clicks++;
-                        if (followed_inacc) summary_data.caseA_follow_inaccurate_clicks++; else summary_data.caseA_unfollow_inaccurate_clicks++;
-                    } else if (d.test_condition === 'CaseB') {
-                        summary_data.caseB_total_clicks++;
-                        if (followed_acc) summary_data.caseB_follow_accurate_clicks++; else summary_data.caseB_unfollow_accurate_clicks++;
-                        if (followed_inacc) summary_data.caseB_follow_inaccurate_clicks++; else summary_data.caseB_unfollow_inaccurate_clicks++;
-                    }
 
                     if (followed_acc) window.cycle_stats.follow_acc++; else window.cycle_stats.unfollow_acc++;
                     if (followed_inacc) window.cycle_stats.follow_inacc++; else window.cycle_stats.unfollow_inacc++;
                     if (side === d.red_dir) summary_data.follow_red_test++; else summary_data.unfollow_red_test++;
                     if (side === d.blue_dir) summary_data.follow_blue_test++; else summary_data.unfollow_blue_test++;
-                    
+
+                    // テストフェーズのデータ書き込み
                     jsPsych.data.write({ 
-                        phase: current_phase, 
-                        test_condition: d.test_condition,
-                        cycle: d.cycle, block: d.block, trial: trial_cursor, 
-                        response_side: side === 0 ? 'left' : 'right',
+                        phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor, 
+                        response_side: side === 0 ? 'left' : 'right', // ★選択した方向
+                        
+                        accurate_hint_side: acc_dir === 0 ? 'left' : 'right', // ★正確な人が指示した方向
+                        inaccurate_hint_side: inacc_dir === 0 ? 'left' : 'right',
+                        
+                        accurate_val: acc_val, // ★正確な人が示したコインの枚数
+                        inaccurate_val: inacc_val, 
+                        
+                        followed_accurate: followed_acc, // ★正確な人に従ったか（TRUE/FALSE）
+                        followed_inaccurate: followed_inacc,
+
                         red_hint_side: d.red_dir === 0 ? 'left' : 'right', 
                         blue_hint_side: d.blue_dir === 0 ? 'left' : 'right',
-                        followed_accurate: followed_acc,
-                        followed_inaccurate: followed_inacc,
                         red_val: d.red_val, blue_val: d.blue_val,
-                        lost_val: rew, // ★追加：この試行で実際に失った金額
+                        lost_val: rew, 
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
                 }
@@ -1151,6 +1169,7 @@
               unfollow_inaccurate_training: typeof summary_data !== 'undefined' ?
               summary_data.unfollow_inaccurate_training : 0,
               total_success_training: typeof summary_data !== 'undefined' ?
+              summary_data.total_success_training : 0,
               total_clicks_test: typeof summary_data !== 'undefined' ?
               summary_data.total_clicks_test : 0,
               follow_red_test: typeof summary_data !== 'undefined' ?
