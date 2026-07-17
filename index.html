@@ -502,8 +502,9 @@
         type: jsPsychCallFunction,
         func: function(){
             // ▼▼▼ 手動設定エリア：キャラクターの色 ▼▼▼
-            let accurate_dirs = [0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1];//80% S3
-            let inaccurate_dirs = [1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0];//20% S4
+            experiment_data.inaccurate_color = 'red'; //20%
+            experiment_data.accurate_color = 'blue';  //80%
+            experiment_data.condition = 'loss';
             // ▲▲▲ 手動設定エリア ここまで ▲▲▲
 
             experiment_data.inaccurate_img = experiment_data.inaccurate_color === 'blue' ? IMG_BLUE_SRC : IMG_RED_SRC;
@@ -585,8 +586,8 @@
     function generateTrainingTrials() {
         let trials = [];
         // 20サイクル分の手動設定エリア
-        let accurate_dirs = [0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0];//80% S1
-        let inaccurate_dirs = [1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0];//20% S2
+        let accurate_dirs = [0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1];//80% S3
+        let inaccurate_dirs = [1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0];//20% S4
 
         // 正確RPの正確性 (16回正解、4回不正解)
         let accurate_types = [];
